@@ -209,12 +209,10 @@ class FSEntry(DependencyPossessor):
 
     def file_id(self):
         """ Returns the fptr @FILEID if this is not a Directory. """
-        if self.type.lower() == "directory":
-            return None
+        # if self.type.lower() in ["directory", "newspaper", "basic"]:
+        #     return None
         if self.file_uuid is None:
-            raise exceptions.MetsError(
-                "No FILEID: File %s does not have file_uuid set" % self.path
-            )
+            return ""
         if self.is_aip:
             if self._fileid:
                 return self._fileid
@@ -270,6 +268,7 @@ class FSEntry(DependencyPossessor):
         """
         # HELP how handle multiple amdSecs?
         # When adding *MD which amdSec to add to?
+        id = kwargs.get("id")
         if mode.lower() == "mdwrap":
             othermdtype = kwargs.get("othermdtype")
             mdsec = MDWrap(md, mdtype, othermdtype)
@@ -278,7 +277,7 @@ class FSEntry(DependencyPossessor):
             label = kwargs.get("label")
             otherloctype = kwargs.get("otherloctype")
             mdsec = MDRef(md, mdtype, loctype, label, otherloctype)
-        subsection = SubSection(subsection, mdsec)
+        subsection = SubSection(subsection, mdsec, id)
         if subsection.subsection == "dmdSec":
             self.dmdsecs.append(subsection)
         else:
@@ -399,8 +398,6 @@ class FSEntry(DependencyPossessor):
         :raises ValueError: If this FSEntry cannot have children.
         :raises ValueError: If the child and the parent are the same
         """
-        if self.type.lower() != "directory":
-            raise ValueError("Only directory objects can have children")
         if child is self:
             raise ValueError("Cannot be a child of itself!")
         if child not in self._children:
@@ -434,18 +431,18 @@ class FSEntry(DependencyPossessor):
         :return: fileSec element for this FSEntry
         """
         if (
-            self.type.lower() not in ("item", "archival information package")
+            self.type.lower() not in ("item", "archival information package", "representation")
             or self.use is None
         ):
             return None
         el = etree.Element(utils.lxmlns("mets") + "file", ID=self.file_id())
-        if self.group_id():
-            el.attrib["GROUPID"] = self.group_id()
         if self.admids:
             el.set("ADMID", " ".join(self.admids))
         if self.checksum and self.checksumtype:
             el.attrib["CHECKSUM"] = self.checksum
             el.attrib["CHECKSUMTYPE"] = self.checksumtype
+        if self.use:
+            el.attrib["USE"] = self.use
         if self.path:
             flocat = etree.SubElement(el, utils.lxmlns("mets") + "FLocat")
             # Setting manually so order is correct
@@ -456,8 +453,7 @@ class FSEntry(DependencyPossessor):
                     'Value "{}" (for attribute xlink:href) is not a valid'
                     " URL.".format(self.path)
                 )
-            flocat.set("LOCTYPE", "OTHER")
-            flocat.set("OTHERLOCTYPE", "SYSTEM")
+            flocat.set("LOCTYPE", "URL")
         for transform_file in self.transform_files:
             transform_file_el = etree.SubElement(
                 el, utils.lxmlns("mets") + "transformFile"
@@ -472,7 +468,7 @@ class FSEntry(DependencyPossessor):
         """Returns ``True`` if this fs item is a directory with no children or
         a directory with only other empty directories as children.
         """
-        if self.mets_div_type == "Directory":
+        if self.mets_div_type.lower() in ["directory", "newspaper", "basic"]:
             children = self._children
             if children:
                 if all(child.is_empty_dir for child in children):
@@ -499,18 +495,17 @@ class FSEntry(DependencyPossessor):
             empty directories and do not add fptr elements for files.
         :return: structMap element for this FSEntry
         """
-        if not self.label:
-            return None
         # Empty directories are not included in the physical structmap.
         if self.is_empty_dir and not normative:
             return None
         el = etree.Element(utils.lxmlns("mets") + "div", TYPE=self.mets_div_type)
-        el.attrib["LABEL"] = self.label
+        if self.label:
+            el.attrib["LABEL"] = self.label
         if (not normative) and self.file_id():
             etree.SubElement(el, utils.lxmlns("mets") + "fptr", FILEID=self.file_id())
         if self.dmdids:
             el.set("DMDID", " ".join(self.dmdids))
-        if self.mets_div_type.lower() == "directory" and self.admids:
+        if self.mets_div_type.lower() in ["directory", "newspaper", "basic"] and self.admids:
             el.set("ADMID", " ".join(self.admids))
         if recurse and self._children:
             for child in self._children:

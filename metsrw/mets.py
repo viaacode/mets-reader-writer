@@ -256,12 +256,7 @@ class METSDocument(object):
         Returns structMap element for all files.
         """
         structmap = etree.Element(
-            utils.lxmlns("mets") + "structMap",
-            TYPE="physical",
-            # TODO Add ability for multiple structMaps
-            ID="structMap_1",
-            # TODO don't hardcode this
-            LABEL="Archivematica default",
+            utils.lxmlns("mets") + "structMap"
         )
         for item in self._root_elements:
             child = item.serialize_structmap(recurse=True)
@@ -297,15 +292,15 @@ class METSDocument(object):
         filesec = etree.Element(utils.lxmlns("mets") + "fileSec")
         filegrps = {}
         for file_ in files:
-            if file_.type.lower() not in ("item", AIP_ENTRY_TYPE):
+            if file_.type.lower() not in ("item", AIP_ENTRY_TYPE, "representation"):
                 continue
             # Get fileGrp, or create if not exist
-            filegrp = filegrps.get(file_.use)
+            filegrp = filegrps.get(file_.label)
             if filegrp is None:
                 filegrp = etree.SubElement(
-                    filesec, utils.lxmlns("mets") + "fileGrp", USE=file_.use
+                    filesec, utils.lxmlns("mets") + "fileGrp", USE=file_.label
                 )
-                filegrps[file_.use] = filegrp
+                filegrps[file_.label] = filegrp
 
             file_el = file_.serialize_filesec()
             if file_el is not None:
