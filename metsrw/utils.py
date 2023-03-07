@@ -31,9 +31,8 @@ def lxmlns(arg):
 # METSRW CONSTANTS #
 ####################
 
-FILE_ID_PREFIX = "file-"
-GROUP_ID_PREFIX = "Group-"
-
+FILE_ID_PREFIX = ""
+GROUP_ID_PREFIX = ""
 
 #################################
 # HELPERS FOR MANIPULATING URLS #
