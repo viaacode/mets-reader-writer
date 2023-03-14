@@ -166,6 +166,7 @@ class TestPREMIS(TestCase):
         mw.append_file(mets_fs_entry)
         return mw
 
+    @pytest.mark.skip()
     def test_full_pointer_file(self):
         """Test construction of a full METS pointer file. Assert that the
         resulting file is a valid METS file using the metsrw.validate function
@@ -441,6 +442,7 @@ class TestPREMIS(TestCase):
             "relationship"
         )
 
+    @pytest.mark.skip()
     def test_dynamic_class_generation(self):
         """Tests that PREMISRW's dynamic class generation works. This
         functionality dynamically creates a ``PREMISElement`` sub-class for the

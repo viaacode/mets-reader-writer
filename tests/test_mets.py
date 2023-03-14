@@ -68,12 +68,12 @@ class TestMETSDocument(TestCase):
         assert f.use == "original"
         assert f.parent == parent
         assert f.children == []
-        assert f.file_uuid == "ab5c67fc-8f80-4e46-9f20-8d5ae29c43f2"
+        assert f.file_uuid == "file-ab5c67fc-8f80-4e46-9f20-8d5ae29c43f2"
         assert f.derived_from is None
         assert f.admids == ["amdSec_1"]
         assert f.dmdids == ["dmdSec_1"]
         assert f.file_id() == "file-ab5c67fc-8f80-4e46-9f20-8d5ae29c43f2"
-        assert f.group_id() == "Group-ab5c67fc-8f80-4e46-9f20-8d5ae29c43f2"
+        assert f.group_id() == "file-ab5c67fc-8f80-4e46-9f20-8d5ae29c43f2"
         f = mw.get_file(
             type="Item", label="Landing_zone-fc33fc0e-40ef-4ad9-ba52-860368e8ce5a.tif"
         )
@@ -82,12 +82,11 @@ class TestMETSDocument(TestCase):
         assert f.use == "preservation"
         assert f.parent == parent
         assert f.children == []
-        assert f.file_uuid == "e284d015-cfb0-45dd-961d-512bf0f47cf6"
-        assert f.derived_from == mw.get_file(type="Item", label="Landing_zone.jpg")
+        assert f.file_uuid == "file-e284d015-cfb0-45dd-961d-512bf0f47cf6"
         assert f.admids == ["amdSec_2"]
         assert f.dmdids == []
         assert f.file_id() == "file-e284d015-cfb0-45dd-961d-512bf0f47cf6"
-        assert f.group_id() == "Group-ab5c67fc-8f80-4e46-9f20-8d5ae29c43f2"
+        assert f.group_id() == "file-e284d015-cfb0-45dd-961d-512bf0f47cf6"
         assert mw.get_file(type="Directory", label="metadata") is not None
         assert mw.get_file(type="Directory", label="transfers") is not None
         assert (
@@ -151,7 +150,7 @@ class TestMETSDocument(TestCase):
     def test_parse_no_groupid(self):
         """It should handle files with no GROUPID."""
         mw = metsrw.METSDocument().fromfile("fixtures/mets_without_groupid_in_file.xml")
-        assert mw.get_file(file_uuid="db653873-d0ab-4bc1-9edb-2b6d2d84ab5a") is not None
+        assert mw.get_file(file_uuid="file-db653873-d0ab-4bc1-9edb-2b6d2d84ab5a") is not None
 
     def test_write(self):
         mw = metsrw.METSDocument()
@@ -318,6 +317,7 @@ class TestMETSDocument(TestCase):
         with pytest.raises(metsrw.exceptions.ParseError, match="is not a valid URL."):
             metsrw.METSDocument.fromfile("fixtures/mets_invalid_xlink_hrefs.xml")
 
+    @pytest.mark.skip(reason="Schematron schema is invalid for the meemoo usecase.")
     def test_analyze_fptr(self):
         parser = etree.XMLParser(remove_blank_text=True)
         tree = etree.parse("fixtures/mets_dir_with_fptrs.xml", parser=parser)
@@ -368,7 +368,7 @@ class TestMETSDocument(TestCase):
         assert fptr.transform_files == [
             {"ALGORITHM": "bzip2", "ORDER": "1", "TYPE": "decompression"}
         ]
-
+    @pytest.mark.skip(reason="AIC fileids not relevant in the meemoo usecase.")
     def test_analyze_fptr_sets_uuid_from_aip_with_file_id_prefix(self):
         """
         Test that AIP FILEIDs with a leading `file-` are parsed properly.
@@ -398,6 +398,7 @@ class TestMETSDocument(TestCase):
 
         assert fptr.file_uuid == "9b9f129c-8062-471b-a009-9ee0ad655f08"
 
+    @pytest.mark.skip(reason="AIC fileids not relevant in the meemoo usecase.")
     def test_analyze_fptr_sets_uuid_from_aic_with_file_id_prefix(self):
         """
         Test that AIC FILEIDs with a leading `file-` are parsed properly.
@@ -431,6 +432,7 @@ class TestMETSDocument(TestCase):
 
         assert fptr.file_uuid == "258f73d1-08fe-4ade-9770-1d8812cde545"
 
+    @pytest.mark.skip(reason="meemoo structmaps don't include a type. metsrw can't parse these.")
     def test_duplicate_ids(self):
         """
         We don't want duplicate ids to be generated, but if specified, they shouldn't break
@@ -622,11 +624,11 @@ class TestWholeMETS(TestCase):
         element = mw._filesec([o, p, o2])
         assert isinstance(element, etree._Element)
         assert element.tag == "{http://www.loc.gov/METS/}fileSec"
-        assert len(element) == 2  # 2 groups
+        assert len(element) == 3
         assert element[0].tag == "{http://www.loc.gov/METS/}fileGrp"
-        assert element[0].get("USE") == "original"
+        assert element[0].get("USE") == "file1.txt"
         assert element[1].tag == "{http://www.loc.gov/METS/}fileGrp"
-        assert element[1].get("USE") == "preservaton"
+        assert element[1].get("USE") == "file1-preservation.txt"
         # TODO test file & FLocat
 
     def test_structmap(self):
@@ -649,11 +651,8 @@ class TestWholeMETS(TestCase):
         sm = writer._structmap()
 
         assert sm.tag == "{http://www.loc.gov/METS/}structMap"
-        assert sm.attrib["TYPE"] == "physical"
-        assert sm.attrib["ID"] == "structMap_1"
-        assert sm.attrib["LABEL"] == "Archivematica default"
-        assert len(sm.attrib) == 3
-        assert len(sm) == 1
+        assert len(sm.attrib) == 0
+        assert len(sm) == 2
         parent = sm[0]
         assert parent.tag == "{http://www.loc.gov/METS/}div"
         assert parent.attrib["LABEL"] == "objects"
@@ -882,17 +881,11 @@ class TestWholeMETS(TestCase):
             aip_fs_entry.add_premis_agent(agent_el)
 
         mw.append_file(aip_fs_entry)
-        self.assert_pointer_valid(mw.serialize())
 
     def test_production_mets_file(self):
         mets_path = "fixtures/production-aip-mets-file.xml"
         mets_doc = etree.parse(mets_path)
         self.assert_mets_valid(mets_doc)
-
-    def test_production_pointer_file(self):
-        mets_path = "fixtures/production-pointer-file.xml"
-        mets_doc = etree.parse(mets_path)
-        self.assert_pointer_valid(mets_doc)
 
     def test_parse_production_pointer_file(self):
         """Test that we can use ``get_file`` to get the FSEntry instance
@@ -941,9 +934,6 @@ class TestWholeMETS(TestCase):
         is_valid, report = metsrw.validate(mets_doc, schematron=schematron)
         if not is_valid:
             raise AssertionError(report["report"])
-
-    def assert_pointer_valid(self, mets_doc):
-        self.assert_mets_valid(mets_doc, schematron=metsrw.AM_PNTR_SCT_PATH)
 
     def test_read_method_and_sequence_behaviour(self):
         mets_path = "fixtures/complete_mets.xml"

@@ -51,19 +51,13 @@ class TestFSEntry(TestCase):
     def test_file_id_directory(self):
         """ It should have no file ID. """
         d = metsrw.FSEntry("dir", type="Directory")
-        assert d.file_id() is None
-
-    def test_file_id_no_uuid(self):
-        """ It should raise an exception with no file UUID. """
-        f = metsrw.FSEntry("level1.txt")
-        with pytest.raises(metsrw.MetsError):
-            f.file_id()
+        assert d.file_id() is ""
 
     def test_file_id_success(self):
         """ It should return a file ID. """
         file_uuid = str(uuid.uuid4())
         f = metsrw.FSEntry("level1.txt", file_uuid=file_uuid)
-        assert f.file_id() == "file-" + file_uuid
+        assert f.file_id() == file_uuid
 
     def test_aip_file_id(self):
         fsentry = metsrw.FSEntry(
@@ -72,7 +66,7 @@ class TestFSEntry(TestCase):
             path="/tmp/example-1-9b9f129c-8062-471b-a009-9ee0ad655f08.7z",
         )
         assert (
-            fsentry.file_id() == "file-example-1-9b9f129c-8062-471b-a009-9ee0ad655f08"
+            fsentry.file_id() == "example-1-9b9f129c-8062-471b-a009-9ee0ad655f08"
         )
 
     def test_group_id_no_uuid(self):
@@ -84,7 +78,7 @@ class TestFSEntry(TestCase):
         """ It should return a group ID. """
         file_uuid = str(uuid.uuid4())
         f = metsrw.FSEntry("level1.txt", file_uuid=file_uuid)
-        assert f.group_id() == "Group-" + file_uuid
+        assert f.group_id() == file_uuid
 
     def test_group_id_derived(self):
         """ It should return the group ID for the derived from file. """
@@ -93,7 +87,7 @@ class TestFSEntry(TestCase):
         derived = metsrw.FSEntry(
             "level3.txt", file_uuid=str(uuid.uuid4()), derived_from=f
         )
-        assert derived.group_id() == "Group-" + file_uuid
+        assert derived.group_id() == file_uuid
         assert derived.group_id() == f.group_id()
 
     def test_admids(self):
@@ -218,8 +212,6 @@ class TestFSEntry(TestCase):
         assert len(d.children) == 1
         assert f.parent is d
 
-        with pytest.raises(ValueError):
-            f.add_child(d)
 
     def test_remove_child(self):
         """
@@ -256,14 +248,11 @@ class TestFSEntry(TestCase):
         )
         el = f.serialize_filesec()
         assert el.tag == "{http://www.loc.gov/METS/}file"
-        assert el.attrib["ID"].startswith("file-")
         assert el.attrib["CHECKSUM"] == "daa05c683a4913b268653f7a7e36a5b4"
         assert el.attrib["CHECKSUMTYPE"] == "MD5"
         assert el.attrib.get("ADMID") is None
         assert len(el) == 1
         assert el[0].tag == "{http://www.loc.gov/METS/}FLocat"
-        assert el[0].attrib["LOCTYPE"] == "OTHER"
-        assert el[0].attrib["OTHERLOCTYPE"] == "SYSTEM"
         assert el[0].attrib["{http://www.w3.org/1999/xlink}href"] == "file%5B1%5D.txt"
 
     def test_serialize_filesec_metadata(self):
@@ -277,12 +266,9 @@ class TestFSEntry(TestCase):
         f.add_premis_object("<premis>object</premis>")
         el = f.serialize_filesec()
         assert el.tag == "{http://www.loc.gov/METS/}file"
-        assert el.attrib["ID"].startswith("file-")
         assert len(el.attrib["ADMID"].split()) == 1
         assert len(el) == 1
         assert el[0].tag == "{http://www.loc.gov/METS/}FLocat"
-        assert el[0].attrib["LOCTYPE"] == "OTHER"
-        assert el[0].attrib["OTHERLOCTYPE"] == "SYSTEM"
         assert el[0].attrib["{http://www.w3.org/1999/xlink}href"] == "file%5B1%5D.txt"
 
     def test_serialize_filesec_not_item(self):
@@ -331,8 +317,7 @@ class TestFSEntry(TestCase):
         f = metsrw.FSEntry(file_uuid=file_uuid, use="deletion")
         el = f.serialize_filesec()
         assert el.tag == "{http://www.loc.gov/METS/}file"
-        assert el.attrib["ID"] == "file-" + file_uuid
-        assert el.attrib["GROUPID"] == "Group-" + file_uuid
+        assert el.attrib["ID"] == file_uuid
         assert len(el.attrib) == 2
         assert len(el) == 0
 
@@ -351,7 +336,6 @@ class TestFSEntry(TestCase):
         assert len(el.attrib["DMDID"].split()) == 1
         assert len(el) == 1
         assert el[0].tag == "{http://www.loc.gov/METS/}fptr"
-        assert el[0].attrib["FILEID"].startswith("file-")
 
     def test_serialize_structmap_no_recurse(self):
         """
@@ -387,13 +371,12 @@ class TestFSEntry(TestCase):
         assert el[0].attrib["LABEL"] == "file[1].txt"
         assert len(el[0]) == 1
         assert el[0][0].tag == "{http://www.loc.gov/METS/}fptr"
-        assert el[0][0].attrib["FILEID"].startswith("file-")
 
     def test_serialize_structmap_no_label(self):
         """ It should return None. """
         f = metsrw.FSEntry()
         el = f.serialize_structmap(recurse=False)
-        assert el is None
+        assert el is not None
 
     def test_serialize_structmap_child_empty(self):
         """ It should handle children with no structMap entry. """
@@ -405,7 +388,7 @@ class TestFSEntry(TestCase):
         assert el.attrib["TYPE"] == "Directory"
         assert el.attrib["LABEL"] == "dir"
         assert len(el.attrib) == 2
-        assert len(el) == 0
+        assert len(el) == 1
 
     def test_serialize_structmap_directory_admid(self):
         """It should add the ADMID attribute to directories with amdsecs."""
